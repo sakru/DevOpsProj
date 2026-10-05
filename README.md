@@ -1,26 +1,28 @@
-# DevOpsProj
-
 # Aegir — Submarine Control Simulator
 
 ## Projektidé
 
-Aegir är en terminalbaserad simulator av ett distribuerat styrsystem för en ubåt. Ubåten består av flera oberoende systemmoduler, exempelvis sonar, navigation, ballast och framdrivning, som reagerar på kommandon och förändringar i omgivningen.
+Jag vill göra en enkel ubåtssimulator som körs i terminalen.
 
-Användaren styr inte varje komponent direkt utan kan ge övergripande kommandon och skapa händelser i simuleringsmiljön, exempelvis förändrat djup, strömmar, sensorfel eller kommunikationsproblem. Systemet försöker därefter fortsätta navigera genom att låta de olika modulerna reagera utifrån sin egen information och sitt eget ansvar.
+Tanken är att ubåten har flera olika system som sonar, navigation, ballast och motor. De olika systemen har sina egna uppgifter men behöver samtidigt samarbeta för att ubåten ska kunna hålla rätt djup, hastighet och riktning.
 
-Projektets huvudfokus är objektorienterad programmering i Java, polymorfism, inkapsling, felhantering och separation of concerns.
+Användaren ska kunna ge ubåten kommandon och även skapa olika problem i simulationen, till exempel stark ström, förändrad havsbotten eller att ett system slutar fungera.
+
+Målet är inte att göra en realistisk ubåtssimulator utan att använda projektet för att träna på Java, objektorientering och hur flera olika delar av ett program kan arbeta tillsammans.
 
 ## Superklass
 
-Namn: `SystemModule`
+**Namn:** `SystemModule`
 
-Gemensamma fält:
+Alla större system i ubåten ska ärva från samma basklass.
 
-- `String id`
-- `String name`
-- `ModuleStatus status`
-- `double health`
-- `boolean enabled`
+Gemensamma fält kan till exempel vara:
+
+- `id`
+- `name`
+- `status`
+- `health`
+- `enabled`
 
 Gemensamma metoder:
 
@@ -36,185 +38,128 @@ public void deactivate();
 public boolean isOperational();
 ```
 
-`SystemModule` representerar en generell teknisk modul i ubåtens styrsystem.
-
-Metoderna `update()` och `getStatusReport()` implementeras olika beroende på modulens funktion och overridas därför i samtliga subklasser.
+`SystemModule` ska innehålla sådant som är gemensamt för alla system, medan varje subklass själv bestämmer hur den reagerar under simulationen.
 
 ## Subklasser
 
+Jag planerar just nu följande moduler.
+
 ### `SonarModule`
 
-Ansvarar för information om omgivningen och avståndet till havsbotten.
+Sonaren läser information om omgivningen, framför allt avståndet till havsbotten.
 
-Overridar:
-
-```java
-@Override
-public void update(SimulationContext context)
-```
-
-för att läsa simulerad sensordata och skapa observationer.
+Den kommer bland annat overrida:
 
 ```java
-@Override
-public String getStatusReport()
+update()
+getStatusReport()
 ```
 
-för att visa aktuell bottendistans, sensorkvalitet och modulstatus.
+`update()` används för att uppdatera sensordata och `getStatusReport()` visar aktuell sonarstatus.
 
 ### `NavigationModule`
 
-Ansvarar för önskat djup, kurs och rörelse utifrån tillgänglig information.
+Navigationen använder information om ubåtens position, djup och omgivning för att bestämma hur ubåten bör röra sig.
 
-Overridar:
-
-```java
-@Override
-public void update(SimulationContext context)
-```
-
-för att analysera aktuell position, djup, ström och sensordata.
+Den overridar också:
 
 ```java
-@Override
-public String getStatusReport()
+update()
+getStatusReport()
 ```
 
-för att visa navigationsläge, måldjup och aktuell avvikelse.
+Navigationen ska till exempel kunna jämföra aktuellt djup med måldjupet.
 
 ### `BallastModule`
 
-Ansvarar för ubåtens simulerade flytkraft.
+Ballastsystemet påverkar om ubåten ska stiga eller sjunka.
 
-Overridar:
+`update()` ska justera ballast beroende på vilket djup navigationen försöker nå.
 
-```java
-@Override
-public void update(SimulationContext context)
-```
-
-för att justera ballastnivån mot önskat djup.
-
-```java
-@Override
-public String getStatusReport()
-```
-
-för att visa ballastnivå och aktuell vertikal korrigering.
+`getStatusReport()` visar bland annat aktuell ballastnivå.
 
 ### `PropulsionModule`
 
-Ansvarar för framdrivning och simulerad hastighet.
+Motorsystemet ansvarar för ubåtens hastighet.
 
-Overridar:
-
-```java
-@Override
-public void update(SimulationContext context)
-```
-
-för att anpassa motoreffekt efter begärd hastighet och aktuell belastning.
-
-```java
-@Override
-public String getStatusReport()
-```
-
-för att visa motoreffekt, önskad hastighet och faktisk hastighet.
+Det ska kunna reagera på önskad hastighet och ändra motoreffekten.
 
 ### `ControlSurfaceModule`
 
-Ansvarar för simulerade styr- och dykroder.
+Den här modulen representerar ubåtens styr- och dykroder.
 
-Overridar:
-
-```java
-@Override
-public void update(SimulationContext context)
-```
-
-för att justera styrvinkel utifrån navigationssystemets begäran.
-
-```java
-@Override
-public String getStatusReport()
-```
-
-för att visa aktuella styrvinklar och modulstatus.
+Den används för att påverka bland annat pitch och riktning.
 
 ## Polymorfism
 
-Alla moduler lagras i samma collection:
+Alla systemmoduler ska sparas i samma lista:
 
 ```java
 List<SystemModule> modules;
 ```
 
-Programmet kan därför exempelvis köra:
+På så sätt kan simulationen uppdatera alla moduler på samma sätt:
 
 ```java
 for (SystemModule module : modules) {
     module.update(context);
+}
+```
+
+Även om alla objekt ligger i samma lista kommer Java att köra rätt version av `update()` beroende på vilken typ objektet egentligen är.
+
+Samma sak ska användas för status:
+
+```java
+for (SystemModule module : modules) {
     System.out.println(module.getStatusReport());
 }
 ```
 
-Java väljer automatiskt korrekt implementation av `update()` och `getStatusReport()` beroende på objektets verkliga typ.
-
-Detta används som en central del av simuleringsloopen och inte enbart som ett separat demonstrationsexempel.
-
 ## Interface
 
-Namn: `Communicating`
+Jag vill också ha ett interface för de system som kan kommunicera med andra delar av ubåten.
 
-Metoder:
+Arbetsnamn:
 
-```java
-void receiveMessage(SystemMessage message);
+`Communicating`
 
-void sendMessage(SystemMessage message);
-```
-
-Interfacet implementeras bland annat av:
-
-`SonarModule`
-
-`NavigationModule`
-
-`PropulsionModule`
-
-Olika moduler kan därför behandlas polymorft som kommunicerande komponenter utan att mottagaren behöver känna till deras konkreta klass.
-
-Exempel:
+Till exempel:
 
 ```java
-public void deliverMessage(
-        Communicating receiver,
-        SystemMessage message) {
-
-    receiver.receiveMessage(message);
+public interface Communicating {
+    void receiveMessage(SystemMessage message);
+    void sendMessage(SystemMessage message);
 }
 ```
 
+Det kan implementeras av till exempel:
+
+- `SonarModule`
+- `NavigationModule`
+- `PropulsionModule`
+
+Tanken är att olika typer av moduler ska kunna ta emot samma typ av meddelande utan att resten av programmet behöver känna till exakt vilken klass det är.
+
 ## Collections
 
-`SubmarineControlSystem` innehåller:
+Den viktigaste collectionen blir:
 
 ```java
 List<SystemModule> modules;
 ```
 
-Listan används aktivt i systemet.
+Den ska inte bara användas för att lagra moduler.
 
-Programmet ska kunna söka efter en modul utifrån ett värde som användaren skriver in.
+Jag vill bland annat kunna:
 
-Exempel:
+- söka efter en modul efter namn
+- visa alla fungerande moduler
+- visa moduler som har problem
+- räkna hur många moduler som fortfarande fungerar
+- beräkna till exempel genomsnittlig health
 
-```java
-findModuleByName(searchTerm);
-```
-
-Programmet ska även kunna aggregera verklig information från listan, exempelvis:
+Exempel på resultat:
 
 ```text
 Operational modules: 4 / 5
@@ -222,61 +167,49 @@ Failed modules: 1
 Average health: 82 %
 ```
 
-Collection används därför för sökning, filtrering och sammanställning och inte endast för lagring.
-
 ## Meny
 
-`ConsoleMenu` ansvarar endast för input och output.
+Programmet ska köras från terminalen.
 
-Affärslogiken ligger i `SubmarineControlSystem`, `SimulationEngine` och domänklasserna.
-
-Exempel på meny:
+Första versionen av menyn kan ungefär se ut så här:
 
 ```text
-=====================================
-       AEGIR CONTROL SIMULATOR
-=====================================
+=============================
+       AEGIR SIMULATOR
+=============================
 
 1. Show system modules
-2. Search or inspect module
+2. Inspect module
 3. Send submarine command
-4. Inject system failure
+4. Create system failure
 5. Recover module
 6. Advance simulation
 7. Show system summary
-8. Show simulation view
+8. Show simulation
 0. Exit
-
-Select:
 ```
 
-### Show system modules
+### 1. Show system modules
 
-Itererar den polymorfa listan och visar status för samtliga moduler.
+Visar alla moduler och deras nuvarande status.
 
-### Search or inspect module
+### 2. Inspect module
 
-Användaren skriver exempelvis:
+Användaren skriver namnet på en modul och programmet söker efter den i listan.
 
-```text
-navigation
-```
+### 3. Send submarine command
 
-och programmet söker dynamiskt i collection efter motsvarande modul.
-
-### Send submarine command
-
-Användaren kan ge övergripande simuleringskommandon, exempelvis:
+Här ska användaren kunna ge enkla kommandon, exempelvis:
 
 ```text
 Set target depth
 Set target speed
-Maintain current depth
+Maintain depth
 ```
 
-### Inject system failure
+### 4. Create system failure
 
-Användaren väljer en verklig modul från collection och kan simulera ett fel.
+Användaren kan välja en modul och simulera att något går fel.
 
 Exempel:
 
@@ -284,35 +217,29 @@ Exempel:
 Sonar -> OFFLINE
 ```
 
-### Recover module
+### 5. Recover module
 
-Försöker återställa en vald modul till fungerande tillstånd.
+Försöker starta eller återställa en modul som inte fungerar.
 
-### Advance simulation
+### 6. Advance simulation
 
-Kör ett eller flera simulation ticks.
+Kör nästa steg i simulationen.
 
-Under varje tick uppdateras moduler polymorft via:
+Varje steg uppdaterar alla systemmoduler.
 
-```java
-for (SystemModule module : modules) {
-    module.update(context);
-}
-```
+### 7. Show system summary
 
-### Show system summary
+Visar en sammanfattning av hur ubåten och systemen mår.
 
-Aggregerar data från modulsamlingen och visar exempelvis antal fungerande system, felande system och genomsnittlig hälsa.
+### 8. Show simulation
 
-### Show simulation view
-
-Visar ubåten, havsbotten och systemstatus i terminalen.
+Visar ubåtens aktuella position och status i terminalen.
 
 ## Simulation
 
-`SimulationEngine` ansvarar för världens tillstånd och simuleringsloopen.
+Jag tänker hålla själva fysiken ganska enkel eftersom huvudsyftet med projektet är Java och OOP.
 
-Exempel på tillstånd:
+Ubåten kan till exempel ha:
 
 ```java
 class SubmarineState {
@@ -324,7 +251,7 @@ class SubmarineState {
 }
 ```
 
-och:
+Omgivningen kan ha något liknande:
 
 ```java
 class EnvironmentState {
@@ -333,137 +260,125 @@ class EnvironmentState {
 }
 ```
 
-Fysikmodellen hålls medvetet enkel eftersom projektets huvudsyfte är Java och objektorienterad programmering, inte realistisk hydrodynamik.
+Simulationen behöver alltså inte följa verklig hydrodynamik. Det räcker att värdena påverkar varandra på ett logiskt sätt.
 
-## Terminalvisualisering
+Till exempel kan högre motoreffekt öka hastigheten och förändrad ballast påverka djupet.
 
-En extra klass, `TerminalRenderer`, kan presentera simuleringsläget grafiskt med ASCII/Unicode.
+## Terminalgrafik
 
-Exempel:
+Om det fungerar bra vill jag också göra en enkel terminalvy med ASCII eller Unicode.
+
+Ungefär:
 
 ```text
-SONAR ───► COMMAND ───► NAVIGATION
-  ●                         ●
-                            │
-                   ┌────────┼─────────┐
-                   ▼        ▼         ▼
-                BALLAST    FINS     ENGINE
-                  ●         ●         ●
+SONAR ----> COMMAND ----> NAVIGATION
+                              |
+                    +---------+---------+
+                    |         |         |
+                 BALLAST    FINS      ENGINE
 
 
                      __________
              _______/          \______
       ______/                         \____
- ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-                           ----->
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-
-___________________             ______________
-                   \___________/
-                     SEA FLOOR
+                          ----->
 
 
-Depth:        84 m
-Target:       80 m
-Speed:       7.2
-Pitch:       -2.1°
-Mode:        AUTOMATIC
+__________________              ______________
+                  \____________/
+                    SEA FLOOR
+
+
+Depth:   84 m
+Target:  80 m
+Speed:   7.2
+Pitch:   -2.1
 ```
 
-Visualiseringen är separerad från affärslogiken och läser endast simulatorns aktuella state.
+Tanken är att man senare även ska kunna se om kommunikationen mellan systemen fungerar eller om någon modul är offline.
 
 ## Felscenarion
 
-### Ogiltig användarinmatning
+### Felaktig input i menyn
 
-Användaren kan skriva:
+Användaren kan till exempel skriva:
 
 ```text
 abc
 ```
 
-istället för ett menyval.
+när programmet förväntar sig ett nummer.
 
-Programmet använder exempelvis:
+Det ska hanteras med `try/catch`, till exempel genom att fånga `NumberFormatException`.
 
-```java
-try {
-    int choice = Integer.parseInt(input);
-} catch (NumberFormatException e) {
-    System.out.println("Menu selection must be a number.");
-}
+Programmet ska sedan fortsätta köra och be om ett nytt menyval istället för att krascha.
+
+### Ogiltiga värden
+
+Det ska inte gå att sätta helt orimliga värden.
+
+Exempel:
+
+```text
+Target depth: -500
 ```
 
-Programmet fortsätter därefter att köra.
-
-Tom input och menyval utanför tillåtet intervall valideras också.
-
-### Ogiltigt simuleringsvärde
-
-Försök att exempelvis sätta ett negativt måldjup eller en ogiltig hastighet ska inte accepteras.
-
-Domänlogiken kan kasta:
+Domänklassen kan då kasta:
 
 ```java
-throw new IllegalArgumentException(
-    "Target depth must be greater than zero."
-);
+IllegalArgumentException
 ```
 
-`ConsoleMenu` fångar felet och visar ett informativt meddelande.
+och menyn visar ett begripligt felmeddelande.
 
-### Modul ej tillgänglig
+### Modul som inte fungerar
 
-Ett kommando kan skickas till en modul som befinner sig i status `OFFLINE`.
+Ett annat scenario är att programmet försöker använda en modul som är offline.
 
-Detta hanteras genom en specifik validering och exempelvis ett eget exception:
+Det ska också hanteras på ett kontrollerat sätt istället för att programmet kraschar.
+
+Jag funderar på att senare använda ett eget exception, till exempel:
 
 ```java
 ModuleUnavailableException
 ```
 
-istället för ett generellt:
+## Struktur
 
-```java
-catch (Exception e)
-```
-
-## Ansvarsfördelning
+Jag vill försöka hålla användargränssnitt och logik separerade.
 
 `ConsoleMenu`
 
-Ansvarar endast för användarinteraktion.
+Tar hand om input och det som skrivs ut till användaren.
 
 `SubmarineControlSystem`
 
-Ansvarar för collection av moduler, sökning, systemkommandon och övergripande koordinering.
+Håller reda på modulerna och övergripande kommandon.
 
 `SimulationEngine`
 
-Ansvarar för simulation ticks och förändringar i världen.
+Uppdaterar själva simulationen.
 
 `SystemModule`
 
-Definierar gemensamt beteende för systemkomponenter.
+Basklass för systemen.
 
-Subklasserna
+`SonarModule`, `NavigationModule`, `BallastModule` osv.
 
-Ansvarar för respektive tekniskt delsystems regler.
+Innehåller logiken för respektive system.
 
 `TerminalRenderer`
 
-Ansvarar endast för presentation av systemets state.
-
-Detta separerar user interface, business logic och domain model.
+Kan senare användas för att rita simulationen utan att själva simulationslogiken behöver känna till hur terminalen ser ut.
 
 ## Möjlig vidareutveckling
 
-Grundversionen körs som ett komplett Java-program och uppfyller projektets kurskrav utan extern infrastruktur.
+En idé jag vill testa senare är att köra de olika systemen som separata processer eller Docker-containers.
 
-Arkitekturen kan senare utökas så att systemmodulerna körs som separata processer eller Docker-containers.
-
-Exempel:
+Till exempel:
 
 ```text
 sonar
@@ -475,16 +390,16 @@ command
 simulation
 ```
 
-Varje container kan då använda samma Java-domänmodell men kommunicera genom meddelanden istället för direkta metodanrop.
+Då skulle systemen kunna kommunicera med meddelanden över nätverket istället för vanliga metodanrop.
 
-Detta är en vidareutveckling och inte ett krav för att grundversionen ska vara komplett.
+Det är dock inte nödvändigt för den första versionen. Först vill jag få ett komplett Java-program att fungera och uppfylla kursens krav.
 
 ## Motivering
 
-Arv används eftersom systemmodulerna delar gemensamt state och beteende men reagerar olika under simulationen.
+Jag valde arv för systemmodulerna eftersom de har flera gemensamma egenskaper, men samtidigt fungerar på olika sätt.
 
-Polymorfism gör att `SimulationEngine` kan uppdatera alla komponenter genom typen `SystemModule` utan att känna till deras konkreta klasser.
+Polymorfism gör att simulationen kan behandla alla moduler som `SystemModule` och låta respektive klass bestämma vad som händer när `update()` körs.
 
-Interfacet `Communicating` används separat från arv eftersom kommunikation är en förmåga som flera typer kan ha och inte beskriver vad objekten är.
+Jag använder ett separat interface för kommunikation eftersom kommunikation är något en modul kan kunna göra och inte själva typen av modul.
 
-User interface har separerats från domänlogiken så att simulationen senare kan användas med exempelvis ett annat terminalinterface, tester eller ett distribuerat Docker-baserat runtime utan att reglerna i domänklasserna behöver skrivas om.
+Jag vill också hålla terminalmenyn separat från simulationslogiken. Det borde göra det enklare att ändra eller bygga vidare på programmet senare utan att behöva skriva om allt.
